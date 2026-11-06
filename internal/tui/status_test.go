@@ -2,14 +2,12 @@ package tui
 
 import (
 	"testing"
-
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 func TestSettingsSavedStatusExpires(t *testing.T) {
 	m := settingsFixture(t)
 	m.settings.fields[3].SetValue("true") // Saving display settings should not switch rooms.
-	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+	updated, cmd := m.Update(press("ctrl+s"))
 	m = updated.(model)
 	if m.settings != nil {
 		t.Fatal("form still open after save")

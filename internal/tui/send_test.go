@@ -7,8 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 	"github.com/shr-go/bili_live_tui/api"
 )
 
@@ -95,12 +94,12 @@ func TestSendUIRetainsDraftAndBlocksDuplicate(t *testing.T) {
 	m := InitialModel(testSendRoom(`{"code":0}`, 200))
 	m.state = inputView
 	m.textInput.SetValue("测试")
-	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	updated, cmd := m.Update(press("enter"))
 	m = updated.(model)
 	if cmd == nil || !m.sending || m.textInput.Value() != "测试" {
 		t.Fatal("missing pending draft")
 	}
-	_, duplicate := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	_, duplicate := m.Update(press("enter"))
 	if duplicate != nil {
 		t.Fatal("duplicate send")
 	}
@@ -109,7 +108,7 @@ func TestSendUIRetainsDraftAndBlocksDuplicate(t *testing.T) {
 	if m.sending || m.textInput.Value() != "测试" || m.sendStatus != "失败" {
 		t.Fatal("failed draft lost")
 	}
-	updated, cmd = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	updated, cmd = m.Update(press("enter"))
 	m = updated.(model)
 	updated, _ = m.Update(cmd())
 	m = updated.(model)

@@ -14,3 +14,7 @@ temp/
 
 # Windows file-permission diagnostic backups (local troubleshooting artifacts)
 .acl-recovery/
+
+# Login session and the QR image written at runtime. Never commit these.
+COOKIE.DAT
+login.png

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/shr-go/bili_live_tui/api"
 )
 
@@ -54,7 +54,7 @@ func TestSettingsSaveInsertsMissingDefaultFirst(t *testing.T) {
 			m.settings.fields[1].SetValue(tc.list)
 			target := fakeRoom(tc.want[0])
 			m.owner.open = func(_ *http.Client, id uint64) (*api.LiveRoom, error) { target.RoomID = id; return target, nil }
-			next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+			next, cmd := m.Update(press("ctrl+s"))
 			m = next.(model)
 			if m.settings != nil || !reflect.DeepEqual(LiveConfig.RoomIDs, tc.want) {
 				t.Fatalf("not normalized: %+v", LiveConfig)
@@ -100,7 +100,7 @@ func TestSettingsRemovingCurrentRoomSwitchesToDefaultNotFirst(t *testing.T) {
 			if missing {
 				m.settings.fields[1].SetValue("2, 4")
 			}
-			next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+			next, cmd := m.Update(press("ctrl+s"))
 			m = next.(model)
 			if m.settings != nil || !m.switching || m.room != first || m.textInput.Value() != "删除前草稿" {
 				t.Fatal("save did not start a safe asynchronous switch")
@@ -137,13 +137,13 @@ func TestSettingsDeletingCurrentNonDefaultRoomReturnsToUnchangedDefault(t *testi
 	m = next.(model)
 	next, _ = m.Update(cmd())
 	m = next.(model)
-	next, _ = m.Update(tea.KeyMsg{Type: tea.KeyF2})
+	next, _ = m.Update(press("f2"))
 	m = next.(model)
 	m.settings.fields[1].SetValue("1")
 	defaultRoom := fakeRoom(1)
 	var requested uint64
 	m.owner.open = func(_ *http.Client, id uint64) (*api.LiveRoom, error) { requested = id; return defaultRoom, nil }
-	next, cmd = m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+	next, cmd = m.Update(press("ctrl+s"))
 	m = next.(model)
 	if !m.switching || m.roomID != 2 || LiveConfig.RoomID != 1 {
 		t.Fatal("save did not start returning to the unchanged default")
@@ -175,7 +175,7 @@ func TestSettingsFailedAutoSwitchRetainsRoomDraftAndSavedConfig(t *testing.T) {
 				m.settings.fields[1].SetValue("1, 2")
 				want = []uint64{3, 1, 2}
 			}
-			next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+			next, cmd := m.Update(press("ctrl+s"))
 			m = next.(model)
 			if !m.switching {
 				t.Fatal("changed default did not schedule connection")
@@ -209,11 +209,11 @@ func TestSettingsDefaultUnchangedOrAlreadyActiveDoesNotReconnect(t *testing.T) {
 			m = next.(model)
 			next, _ = m.Update(cmd())
 			m = next.(model)
-			next, _ = m.Update(tea.KeyMsg{Type: tea.KeyF2})
+			next, _ = m.Update(press("f2"))
 			m = next.(model)
 			m.settings.fields[0].SetValue(defaultID)
 			m.settings.fields[2].SetValue("10")
-			next, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+			next, _ = m.Update(press("ctrl+s"))
 			m = next.(model)
 			if m.settings != nil || m.switching || m.room != room2 || m.roomID != 2 || m.sendStatus != "设置已保存" {
 				t.Fatal("unchanged default or already-active default caused reconnect")
@@ -225,7 +225,7 @@ func TestSettingsDefaultUnchangedOrAlreadyActiveDoesNotReconnect(t *testing.T) {
 func TestSettingsDoesNotReconnectWhenDefaultRoomIsReinserted(t *testing.T) {
 	m := settingsFixture(t)
 	m.settings.fields[1].SetValue("2") // Current room 1 is also the unchanged default.
-	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+	next, _ := m.Update(press("ctrl+s"))
 	m = next.(model)
 	if m.switching || !reflect.DeepEqual(LiveConfig.RoomIDs, []uint64{1, 2}) {
 		t.Fatal("default was not restored without reconnecting")
@@ -247,7 +247,7 @@ func TestSettingsRoomNormalizationDoesNotHideInvalidInput(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			m := settingsFixture(t)
 			m.settings.fields[1].SetValue(tc.list)
-			next, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+			next, _ := m.Update(press("ctrl+s"))
 			m = next.(model)
 			if m.settings == nil || m.settings.errorText == "" || m.switching || !reflect.DeepEqual(LiveConfig.RoomIDs, []uint64{1, 2}) {
 				t.Fatal("invalid normalized config was applied")
@@ -264,7 +264,7 @@ func TestSettingsCancelRemovalDoesNotSwitchOrNormalize(t *testing.T) {
 	m := settingsFixture(t)
 	m.settings.fields[0].SetValue("3")
 	m.settings.fields[1].SetValue("2")
-	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	next, cmd := m.Update(press("esc"))
 	m = next.(model)
 	if m.settings != nil || m.switching || cmd != nil || LiveConfig.RoomID != 1 || !reflect.DeepEqual(LiveConfig.RoomIDs, []uint64{1, 2}) {
 		t.Fatal("cancel applied room edits")

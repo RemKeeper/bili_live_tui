@@ -2,6 +2,9 @@ package logging
 
 import (
 	"errors"
+	"fmt"
+	"os"
+
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -145,5 +148,6 @@ func Errorf(format string, args ...interface{}) {
 }
 
 func Fatalf(format string, args ...interface{}) {
+	fmt.Fprintf(os.Stderr, format+"\n", args...)
 	defaultLogger.Fatalf(format, args...)
 }

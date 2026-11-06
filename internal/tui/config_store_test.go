@@ -23,6 +23,31 @@ func configFixture(t *testing.T, text string) string {
 	return path
 }
 
+func TestConfigBesideExecutableParent(t *testing.T) {
+	root := t.TempDir()
+	dist := filepath.Join(root, "dist")
+	if err := os.Mkdir(dist, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cfg := filepath.Join(root, "config.toml")
+	if err := os.WriteFile(cfg, []byte("room_id = 1\nchat_buffer = 20\n"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	got, err := firstRegularConfig([]string{
+		filepath.Join(dist, "config.toml"),
+		filepath.Join(dist, "..", "config.toml"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.Clean(got) != filepath.Clean(cfg) {
+		t.Fatalf("got %s", got)
+	}
+	if _, err := firstRegularConfig([]string{filepath.Join(dist, "missing.toml")}); err == nil {
+		t.Fatal("missing config accepted")
+	}
+}
+
 func TestConfigValidation(t *testing.T) {
 	good := api.BiliLiveConfig{RoomID: 1, ChatBuffer: 100000, RoomIDs: []uint64{1, 2}, UserAgent: "Agent/1 中文"}
 	if err := validateConfig(good); err != nil {

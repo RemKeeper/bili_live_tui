@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/shr-go/bili_live_tui/api"
 )
 
@@ -24,7 +24,7 @@ func TestLoginResultsAppliedInUpdate(t *testing.T) {
 	if m.errText != "offline" || cmd != nil {
 		t.Fatal("failure not shown")
 	}
-	if m.View() == "" {
+	if m.View().Content == "" {
 		t.Fatal("missing retry view")
 	}
 }

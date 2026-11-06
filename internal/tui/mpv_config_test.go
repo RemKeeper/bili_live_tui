@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 func TestMPVPathConfigRoundTripPreservesWindowsPath(t *testing.T) {
@@ -51,7 +49,7 @@ func TestSettingsMPVPathSaveReconnectsAudioAndPreservesMute(t *testing.T) {
 	awaitAudioEvent(t, o, func(e audioEvent) bool { return e.playing })
 	m.audioPlaying = true
 	m.settings.fields[10].SetValue("  new-location  ")
-	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+	next, _ := m.Update(press("ctrl+s"))
 	m = next.(model)
 	if m.settings != nil || LiveConfig.MPVPath != "new-location" || m.audioPlaying || !m.audioMuted || m.switching {
 		t.Fatal("path save did not reset only audio")
@@ -102,7 +100,7 @@ func TestSettingsClearingMPVPathStopsAudio(t *testing.T) {
 	o.start(m.room, "ua")
 	awaitAudioEvent(t, o, func(e audioEvent) bool { return e.playing })
 	m.settings.fields[10].SetValue("")
-	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+	next, _ := m.Update(press("ctrl+s"))
 	m = next.(model)
 	if m.settings != nil || LiveConfig.MPVPath != "" {
 		t.Fatal("empty path not saved")
@@ -120,11 +118,11 @@ func TestSettingsMPVPathCancelAndFailedSaveDoNotApply(t *testing.T) {
 		m := settingsFixture(t)
 		m.settings.fields[10].SetValue("new-location")
 		loadedConfig.rename = func(string, string) error { return errors.New("save denied") }
-		key := tea.KeyCtrlS
+		key := press("ctrl+s")
 		if cancel {
-			key = tea.KeyEsc
+			key = press("esc")
 		}
-		next, _ := m.Update(tea.KeyMsg{Type: key})
+		next, _ := m.Update(key)
 		m = next.(model)
 		if LiveConfig.MPVPath != "" {
 			t.Fatal("failed/canceled path applied")

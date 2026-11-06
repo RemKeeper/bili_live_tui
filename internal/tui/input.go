@@ -1,21 +1,20 @@
 package tui
 
 import (
-	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/reflow/truncate"
+	"charm.land/lipgloss/v2"
 )
 
 func (m *model) layoutInputs() {
 	width := max(1, m.width-2*focusMarginWidth)
 	m.textInput.Prompt = m.inputPrompt(width)
-	m.textInput.Width = max(1, width-lipgloss.Width(m.textInput.Prompt)-1)
-	m.textInput.SetCursor(m.textInput.Cursor())
+	m.textInput.SetWidth(max(1, width-lipgloss.Width(m.textInput.Prompt)-1))
+	m.textInput.SetCursor(m.textInput.Position())
 	if m.settings != nil {
 		for i := range m.settings.fields {
-			label := truncate.StringWithTail(settingLabels[i]+": ", uint(max(0, m.viewport.Width/2-2)), "…")
+			label := fitTail(settingLabels[i]+": ", max(0, m.viewport.Width()/2-2), "…")
 			field := &m.settings.fields[i]
-			field.Width = max(1, m.viewport.Width-2-lipgloss.Width(label)-1)
-			field.SetCursor(field.Cursor())
+			field.SetWidth(max(1, m.viewport.Width()-2-lipgloss.Width(label)-1))
+			field.SetCursor(field.Position())
 		}
 	}
 }
@@ -28,16 +27,16 @@ func (m model) inputPrompt(width int) string {
 		// Keep both one-second notices visible; a long missing-player message
 		// must not swallow a simultaneous save/send result. Normal-width mute
 		// notices still fit in full, and the steady icon uses only one cell.
-		audio = truncate.StringWithTail(singleLine(audio), uint(max(1, limit/2)), "…")
+		audio = fitTail(singleLine(audio), max(1, limit/2), "…")
 		budget := max(1, limit-lipgloss.Width(audio)-3)
-		text = truncate.StringWithTail(status, uint(budget), "…") + " · " + audio
+		text = fitTail(status, budget, "…") + " · " + audio
 	} else if status != "" {
 		text = status
 	}
 	if text == "" {
 		return "> "
 	}
-	return truncate.StringWithTail(singleLine(text), uint(limit), "…") + " > "
+	return fitTail(singleLine(text), limit, "…") + " > "
 }
 
 // Status lives in the existing input row, including when a failed draft is non-empty.
@@ -52,10 +51,10 @@ func (m model) inputLine() string {
 		if audio := m.audioLabel(); audio != "" {
 			hint = audio + " · " + hint
 		}
-		return truncate.StringWithTail(hint, uint(width), "…")
+		return fitTail(hint, width, "…")
 	}
 	ti.Prompt = m.inputPrompt(width)
-	ti.Width = max(1, width-lipgloss.Width(ti.Prompt)-1)
-	ti.SetCursor(ti.Cursor())
-	return truncate.StringWithTail(ti.View(), uint(width), "")
+	ti.SetWidth(max(1, width-lipgloss.Width(ti.Prompt)-1))
+	ti.SetCursor(ti.Position())
+	return fit(ti.View(), width)
 }

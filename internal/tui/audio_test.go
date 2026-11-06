@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/shr-go/bili_live_tui/api"
 	"github.com/shr-go/bili_live_tui/internal/live_room"
 )
@@ -232,7 +232,7 @@ func TestAltMMuteIsGlobalAndPreservesDraft(t *testing.T) {
 				m.settings = newSettings(LiveConfig)
 			}
 			before := m.audioMuted
-			next, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'m'}, Alt: true})
+			next, _ := m.Update(press("alt+m"))
 			m = next.(model)
 			if m.audioMuted == before || m.textInput.Value() != "草稿" || m.sendStatus != "发送中" || !m.sending {
 				t.Fatal("Alt+M changed unrelated state")

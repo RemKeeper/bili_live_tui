@@ -59,6 +59,49 @@ type configStore struct {
 	rename   func(string, string) error // os.Rename; injectable for failure tests
 }
 
+// resolveConfigPath finds a relative config beside the working directory, the
+// executable, or the executable's parent. The last case covers `go build -o
+// dist/bililive.exe` when the program is started inside dist/.
+func resolveConfigPath(path string) (string, error) {
+	if path == "" {
+		return "", fmt.Errorf("配置文件路径为空")
+	}
+	if filepath.IsAbs(path) {
+		return path, nil
+	}
+	candidates := []string{path}
+	if wd, err := os.Getwd(); err == nil {
+		candidates[0] = filepath.Join(wd, path)
+	}
+	if exe, err := os.Executable(); err == nil {
+		exeDir := filepath.Dir(exe)
+		candidates = append(candidates, filepath.Join(exeDir, path), filepath.Join(exeDir, "..", path))
+	}
+	return firstRegularConfig(candidates)
+}
+
+func firstRegularConfig(candidates []string) (string, error) {
+	seen := make(map[string]bool)
+	var tried []string
+	for _, candidate := range candidates {
+		abs, err := filepath.Abs(candidate)
+		if err != nil {
+			continue
+		}
+		abs = filepath.Clean(abs)
+		if seen[abs] {
+			continue
+		}
+		seen[abs] = true
+		tried = append(tried, abs)
+		info, err := os.Stat(abs)
+		if err == nil && info.Mode().IsRegular() {
+			return abs, nil
+		}
+	}
+	return "", fmt.Errorf("找不到配置文件，已查找:\n%s", strings.Join(tried, "\n"))
+}
+
 func openConfigStore(path string) (*configStore, api.BiliLiveConfig, error) {
 	var cfg api.BiliLiveConfig
 	absolute, err := filepath.Abs(path)

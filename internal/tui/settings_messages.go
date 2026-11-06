@@ -1,6 +1,6 @@
 package tui
 
-import tea "github.com/charmbracelet/bubbletea"
+import tea "charm.land/bubbletea/v2"
 
 // Associate asynchronous clipboard/cursor results with the originating form
 // and field, so closing a form cannot paste its value into the chat input.

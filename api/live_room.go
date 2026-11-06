@@ -234,9 +234,10 @@ const (
 )
 
 type QRCodeLoginData struct {
-	QRString string
-	QRKey    string
-	Status   QRLoginStatus
+	// Modules is the QR bitmap, including its quiet zone. True is a dark module.
+	Modules [][]bool
+	QRKey   string
+	Status  QRLoginStatus
 }
 
 type PollLoginResp struct {

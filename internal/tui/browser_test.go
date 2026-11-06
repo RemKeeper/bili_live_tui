@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/shr-go/bili_live_tui/api"
 )
 
@@ -57,7 +56,7 @@ func TestF6OpensActiveRoomWithoutChangingDraft(t *testing.T) {
 		LiveConfig.RoomID = 999
 		var opened string
 		m.openURL = func(url string) error { opened = url; return nil }
-		updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyF6})
+		updated, cmd := m.Update(press("f6"))
 		m = updated.(model)
 		if cmd == nil || opened != "" {
 			t.Fatal("opening must be an asynchronous command")
@@ -72,7 +71,7 @@ func TestF6OpensActiveRoomWithoutChangingDraft(t *testing.T) {
 		}
 		// During a pending switch, the old room is still the active room.
 		m.switching = true
-		_, cmd = m.Update(tea.KeyMsg{Type: tea.KeyF6})
+		_, cmd = m.Update(press("f6"))
 		cmd()
 		if opened != "https://live.bilibili.com/123" {
 			t.Fatal("opened pending room")
@@ -80,7 +79,7 @@ func TestF6OpensActiveRoomWithoutChangingDraft(t *testing.T) {
 		m.switching = false
 		m.room = fakeRoom(456)
 		t.Cleanup(m.room.Close)
-		_, cmd = m.Update(tea.KeyMsg{Type: tea.KeyF6})
+		_, cmd = m.Update(press("f6"))
 		cmd()
 		if opened != "https://live.bilibili.com/456" {
 			t.Fatal("did not follow active room change")
@@ -93,7 +92,7 @@ func TestBrowserFailureAndStaleResults(t *testing.T) {
 	m := InitialModel(fakeRoom(123))
 	t.Cleanup(m.Close)
 	m.openURL = func(string) error { return errors.New("launcher unavailable") }
-	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyF6})
+	updated, cmd := m.Update(press("f6"))
 	m = updated.(model)
 	result := cmd()
 	updated, _ = m.Update(result)
@@ -120,7 +119,7 @@ func TestBrowserFailureAndStaleResults(t *testing.T) {
 		}
 	}
 	m.room = nil
-	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyF6})
+	updated, _ = m.Update(press("f6"))
 	if updated.(model).sendStatus != "当前没有可打开的直播间" {
 		t.Fatal("missing room not handled")
 	}

@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/shr-go/bili_live_tui/api"
 )
 
@@ -37,7 +36,7 @@ func TestSwitchRetainsDraftHistoryAndDropsOldEvents(t *testing.T) {
 	m.owner.open = func(_ *http.Client, id uint64) (*api.LiveRoom, error) { return second, nil }
 	m.textInput.SetValue("房间一草稿")
 	m.appendDanmu(&danmuMsg{content: "房间一消息"})
-	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}, Alt: true})
+	updated, cmd := m.Update(press("alt+n"))
 	m = updated.(model)
 	if cmd == nil || !m.switching {
 		t.Fatal("not switching")

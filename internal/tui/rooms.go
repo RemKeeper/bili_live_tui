@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"sync"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/shr-go/bili_live_tui/api"
 	"github.com/shr-go/bili_live_tui/internal/live_room"
 	"github.com/shr-go/bili_live_tui/pkg/logging"
@@ -138,7 +138,7 @@ func (m model) finishSwitch(result roomOpened) (tea.Model, tea.Cmd) {
 		m.sendStatus = "切换失败：" + singleLine(result.err.Error())
 		return m, nil
 	}
-	m.memories[m.roomID] = roomMemory{m.danmu, m.textInput.Value(), m.viewport.YOffset, m.lockBottom}
+	m.memories[m.roomID] = roomMemory{m.danmu, m.textInput.Value(), m.viewport.YOffset(), m.lockBottom}
 	m.owner.release(m.room)
 	m.room, m.roomID = result.room, result.id
 	m.resetAudioDisplay()

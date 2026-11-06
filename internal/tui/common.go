@@ -1,7 +1,7 @@
 package tui
 
 import (
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/shr-go/bili_live_tui/api"
 	"github.com/shr-go/bili_live_tui/internal/live_room"
 	"github.com/shr-go/bili_live_tui/pkg/logging"
@@ -21,6 +21,10 @@ var (
 // LoadConfig is explicit so importing the UI never reads files or exits tests.
 func LoadConfig(path string) error {
 	windowWidth, windowHeight, _ = term.GetSize(int(os.Stdout.Fd()))
+	path, err := resolveConfigPath(path)
+	if err != nil {
+		return err
+	}
 	store, cfg, err := openConfigStore(path)
 	if err != nil {
 		return err
@@ -67,8 +71,8 @@ func PrepareEnterRoom(client *http.Client) (room *api.LiveRoom, err error) {
 			loginModel.localCookie = true
 		}
 	}
-	p := tea.NewProgram(&loginModel, tea.WithAltScreen(), tea.WithMouseCellMotion())
-	if err := p.Start(); err != nil {
+	p := tea.NewProgram(&loginModel)
+	if _, err := p.Run(); err != nil {
 		logging.Fatalf("PrepareEnterRoom ui error: %v", err)
 		os.Exit(1)
 	}

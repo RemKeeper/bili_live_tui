@@ -40,11 +40,10 @@ func QRCodeLogin(client *http.Client) (data *api.QRCodeLoginData, err error) {
 		return
 	}
 	q.WriteFile(256, "login.png")
-	qrStr := q.ToSmallString(false)
 	data = &api.QRCodeLoginData{
-		QRString: qrStr,
-		QRKey:    respData.Data.QrcodeKey,
-		Status:   api.QRLoginNotScan,
+		Modules: q.Bitmap(),
+		QRKey:   respData.Data.QrcodeKey,
+		Status:  api.QRLoginNotScan,
 	}
 	return
 }

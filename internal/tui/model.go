@@ -6,11 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/textinput"
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/reflow/truncate"
+	"charm.land/bubbles/v2/textinput"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/shr-go/bili_live_tui/api"
 )
 
@@ -92,17 +91,10 @@ func InitialModel(room *api.LiveRoom) model {
 
 func (m model) Init() tea.Cmd {
 	m.audio.start(m.room, audioUserAgent())
-	return tea.Batch(waitRoom(m.room), waitAudio(m.audio), pollTerminal())
+	return tea.Batch(waitRoom(m.room), waitAudio(m.audio))
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if poll, ok := msg.(terminalPoll); ok {
-		if poll.width > 0 && poll.height > 0 && (poll.width != m.width || poll.height != m.height) {
-			next, cmd := m.Update(tea.WindowSizeMsg{Width: poll.width, Height: poll.height})
-			return next, tea.Batch(cmd, pollTerminal())
-		}
-		return m, pollTerminal()
-	}
 	next, cmd := m.update(msg)
 	result := next.(model)
 	result.layoutInputs()
@@ -115,14 +107,14 @@ func (m model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds []tea.Cmd
 	)
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		if msg.String() == "alt+m" {
+	case tea.KeyPressMsg:
+		if keyString(msg) == "alt+m" {
 			return m.toggleAudioMute()
 		}
 		if m.settings != nil {
 			return m.settingsKey(msg)
 		}
-		switch msg.String() {
+		switch keyString(msg) {
 		case "f2":
 			if m.sending || m.switching {
 				return m, nil
@@ -200,23 +192,19 @@ func (m model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
-		m.viewport.Width = max(1, msg.Width-2*focusMarginWidth)
+		verticalMarginWidth := 2 * focusMarginWidth
+		contentWidth := max(1, msg.Width-verticalMarginWidth)
+		if !m.ready {
+			m.viewport = viewport.New(viewport.WithWidth(contentWidth), viewport.WithHeight(1))
+		}
+		m.viewport.SetWidth(contentWidth)
 		headerHeight := lipgloss.Height(m.headerView()) + focusMarginHeight
 		footerHeight := lipgloss.Height(m.footerView()) + lipgloss.Height(m.textInput.View()) + 3*focusMarginHeight
 		verticalMarginHeight := headerHeight + footerHeight
-		verticalMarginWidth := 2 * focusMarginWidth
-
-		if !m.ready {
-			m.viewport = viewport.New(max(1, msg.Width-verticalMarginWidth), max(0, msg.Height-verticalMarginHeight))
-			m.viewport.YPosition = headerHeight
-			m.viewport.HighPerformanceRendering = false
-			m.viewport.SetContent(m.renderDanmu())
-			m.ready = true
-		} else {
-			m.viewport.Width = max(1, msg.Width-verticalMarginWidth)
-			m.viewport.Height = max(0, msg.Height-verticalMarginHeight)
-		}
-		m.textInput.Width = max(1, msg.Width-verticalMarginWidth-3)
+		m.viewport.SetHeight(max(0, msg.Height-verticalMarginHeight))
+		m.viewport.YPosition = headerHeight
+		m.ready = true
+		m.textInput.SetWidth(max(1, msg.Width-verticalMarginWidth-3))
 		m.viewport.SetContent(m.renderDanmu())
 	}
 
@@ -248,17 +236,17 @@ func (m model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m model) View() string {
+func (m model) View() tea.View {
 	if !m.ready {
-		return "\nInitializing..."
+		return screen("\nInitializing...")
 	}
 	if m.width < 10 || m.height < 8 {
-		return boundedView(m.inputLine(), m.width, m.height)
+		return screen(boundedView(m.inputLine(), m.width, m.height))
 	}
 	var s string
 	content := m.viewport.View()
 	if m.settings != nil {
-		content = m.settings.view(m.viewport.Width, m.viewport.Height)
+		content = m.settings.view(m.viewport.Width(), m.viewport.Height())
 	}
 	contentStr := fmt.Sprintf("%s\n%s\n%s", m.headerView(), content, m.footerView())
 	textStr := m.inputLine()
@@ -267,7 +255,7 @@ func (m model) View() string {
 	} else {
 		s = lipgloss.JoinVertical(lipgloss.Left, unFocusedStyle.Render(contentStr), focusedStyle.Render(textStr))
 	}
-	return boundedView(s, m.width, m.height)
+	return screen(boundedView(s, m.width, m.height))
 }
 
 func boundedView(s string, width, height int) string {
@@ -279,7 +267,7 @@ func boundedView(s string, width, height int) string {
 		lines = lines[len(lines)-height:]
 	}
 	for i, line := range lines {
-		lines[i] = truncate.StringWithTail(line, uint(width), "")
+		lines[i] = fit(line, width)
 	}
 	return strings.Join(lines, "\n")
 }
@@ -311,25 +299,25 @@ func (m model) headerView() string {
 	}
 
 	header = singleLine(header)
-	if m.viewport.Width < 5 {
-		return truncate.StringWithTail(header, uint(max(0, m.viewport.Width)), "")
+	if m.viewport.Width() < 5 {
+		return fit(header, max(0, m.viewport.Width()))
 	}
-	header = truncate.StringWithTail(header, uint(m.viewport.Width-4), "…")
+	header = fitTail(header, m.viewport.Width()-4, "…")
 	title := lipgloss.NewStyle().BorderStyle(b).Padding(0, 1).
 		Render(header)
-	line := strings.Repeat("─", max(0, m.viewport.Width-lipgloss.Width(title)))
+	line := repeatCell("─", max(0, m.viewport.Width()-lipgloss.Width(title)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, title, line)
 }
 
 func (m model) footerView() string {
 	info := lipgloss.NewStyle().Render(fmt.Sprintf("%3.f%%", m.viewport.ScrollPercent()*100))
-	line := strings.Repeat("─", max(0, m.viewport.Width-lipgloss.Width(info)))
+	line := repeatCell("─", max(0, m.viewport.Width()-lipgloss.Width(info)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, line, info)
 }
 
 func (m model) renderDanmu() string {
 	sb := strings.Builder{}
-	viewportHeight := m.viewport.Height
+	viewportHeight := m.viewport.Height()
 	for n := m.danmu.Len(); n < viewportHeight; n++ {
 		sb.WriteRune('\n')
 	}

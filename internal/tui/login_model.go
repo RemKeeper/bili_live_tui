@@ -1,9 +1,9 @@
 package tui
 
 import (
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"fmt"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/shr-go/bili_live_tui/api"
 	"github.com/shr-go/bili_live_tui/internal/live_room"
 	"net/http"
@@ -31,6 +31,8 @@ type loginModel struct {
 	localCookie bool
 	quit        bool
 	errText     string
+	width       int
+	height      int
 }
 
 func newLoginModel(client *http.Client) loginModel {
@@ -43,6 +45,8 @@ func newLoginModel(client *http.Client) loginModel {
 		chooseLogin: true,
 		localCookie: false,
 		quit:        false,
+		width:       windowWidth,
+		height:      windowHeight,
 	}
 }
 
@@ -104,24 +108,19 @@ func (m *loginModel) enterRoom() tea.Cmd {
 
 func (m *loginModel) Init() tea.Cmd {
 	if m.step == loginStepLoginSuccess {
-		return tea.Batch(m.enterRoom(), pollTerminal())
+		return m.enterRoom()
 	}
-	return pollTerminal()
+	return nil
 }
 
 func (m *loginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case terminalPoll:
-		if msg.width > 0 && msg.height > 0 {
-			windowWidth, windowHeight = msg.width, msg.height
-		}
-		return m, pollTerminal()
-	case tea.KeyMsg:
-		if msg.String() == "ctrl+c" {
+	case tea.KeyPressMsg:
+		if keyString(msg) == "ctrl+c" {
 			m.quit = true
 			return m, tea.Quit
 		}
-		if m.errText != "" && msg.String() == "enter" {
+		if m.errText != "" && keyString(msg) == "enter" {
 			m.errText = ""
 			if m.step == loginStepLoginSuccess {
 				return m, m.enterRoom()
@@ -131,14 +130,14 @@ func (m *loginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		switch m.step {
 		case loginStepConfirmLogin:
-			switch msg.String() {
+			switch keyString(msg) {
 			case "tab":
 				m.chooseLogin = !m.chooseLogin
 			case "left":
 				m.chooseLogin = true
 			case "right":
 				m.chooseLogin = false
-			case "enter", " ":
+			case "enter", "space":
 				if m.chooseLogin {
 					m.step = loginStepWaitLogin
 					return m, m.loadLoginData()
@@ -148,7 +147,7 @@ func (m *loginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case loginStepLoginNeedRefresh:
-			if msg.String() == "enter" || msg.String() == " " {
+			if keyString(msg) == "enter" || keyString(msg) == "space" {
 				m.step = loginStepWaitLogin
 				m.loginData = nil
 				return m, m.loadLoginData()
@@ -190,6 +189,7 @@ func (m *loginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.room, m.step = msg.room, loginStepDone
 		return m, tea.Quit
 	case tea.WindowSizeMsg:
+		m.width, m.height = msg.Width, msg.Height
 		windowWidth, windowHeight = msg.Width, msg.Height
 	case loginStep:
 		if msg == loginStepWaitLogin {
@@ -203,10 +203,35 @@ func (m *loginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *loginModel) View() string {
+func (m *loginModel) View() tea.View {
+	return screen(m.place(m.loginBody()))
+}
+
+func (m *loginModel) textWidth() int {
+	w := 50
+	if m.width > 4 && m.width-4 < w {
+		w = m.width - 4
+	}
+	if w < 1 {
+		w = 1
+	}
+	return w
+}
+
+func (m *loginModel) place(content string) string {
+	if content == "" || m.width <= 0 || m.height <= 0 {
+		return content
+	}
+	if lipgloss.Width(content) > m.width || lipgloss.Height(content) > m.height {
+		return fitBlock(content, m.width, m.height)
+	}
+	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content,
+		lipgloss.WithWhitespaceStyle(lipgloss.NewStyle().Foreground(subtle)))
+}
+
+func (m *loginModel) loginBody() string {
 	if m.errText != "" {
-		return lipgloss.Place(windowWidth, windowHeight, lipgloss.Center, lipgloss.Center,
-			dialogBoxStyle.Render(singleLine(m.errText)+" · Enter 重试 · Ctrl+C 退出"))
+		return dialogBoxStyle.Render(singleLine(m.errText) + " · Enter 重试 · Ctrl+C 退出")
 	}
 	switch m.step {
 	case loginStepConfirmLogin:
@@ -218,53 +243,45 @@ func (m *loginModel) View() string {
 			loginButton = buttonStyle.Render("扫码登录")
 			cancelButton = activeButtonStyle.Render("取消")
 		}
-
-		question := lipgloss.NewStyle().Width(50).Align(lipgloss.Center).
+		question := lipgloss.NewStyle().Width(m.textWidth()).Align(lipgloss.Center).
 			Render("扫码登陆后才能发送弹幕哦！")
 		buttons := lipgloss.JoinHorizontal(lipgloss.Top, loginButton, "  ", cancelButton)
 		ui := lipgloss.JoinVertical(lipgloss.Center, question, buttons)
-		dialog := lipgloss.Place(windowWidth, windowHeight,
-			lipgloss.Center, lipgloss.Center,
-			dialogBoxStyle.Render(ui),
-			lipgloss.WithWhitespaceForeground(subtle),
-		)
-		return dialog
+		return dialogBoxStyle.Render(ui)
 	case loginStepWaitLogin:
 		if m.loginData != nil {
-			tips := "扫描下方的二维码或软件目录内的login.png完成登录"
-			if m.loginData.Status == api.QRLoginNotConfirm {
-				tips = "请在手机上点击确定完成登录"
-			}
-			ui := lipgloss.JoinVertical(lipgloss.Center, tips, m.loginData.QRString)
-			dialogBoxStyleCopy := dialogBoxStyle.Copy().Padding(0, 0)
-			return lipgloss.Place(windowWidth, windowHeight,
-				lipgloss.Center, lipgloss.Center,
-				dialogBoxStyleCopy.Render(ui),
-				lipgloss.WithWhitespaceForeground(subtle),
-			)
+			return m.qrDialog()
 		}
 	case loginStepLoginNeedRefresh:
-		question := lipgloss.NewStyle().Width(50).Align(lipgloss.Center).
+		question := lipgloss.NewStyle().Width(m.textWidth()).Align(lipgloss.Center).
 			Render("二维码已过期，请刷新后再试")
-		confirmButton := activeButtonStyle.Render("刷新")
-		ui := lipgloss.JoinVertical(lipgloss.Center, question, confirmButton)
-		return lipgloss.Place(windowWidth, windowHeight,
-			lipgloss.Center, lipgloss.Center,
-			dialogBoxStyle.Render(ui),
-			lipgloss.WithWhitespaceForeground(subtle),
-		)
+		ui := lipgloss.JoinVertical(lipgloss.Center, question, activeButtonStyle.Render("刷新"))
+		return dialogBoxStyle.Render(ui)
 	case loginStepLoginSuccess:
 		str := "登陆成功，正在连接服务器"
 		if !m.chooseLogin {
 			str = "以游客身份登录，正在连接服务器"
 		}
-		text := lipgloss.NewStyle().Width(50).Align(lipgloss.Center).Render(str)
-		dialog := lipgloss.Place(windowWidth, windowHeight,
-			lipgloss.Center, lipgloss.Center,
-			dialogBoxStyle.Render(text),
-			lipgloss.WithWhitespaceForeground(subtle),
-		)
-		return dialog
+		text := lipgloss.NewStyle().Width(m.textWidth()).Align(lipgloss.Center).Render(str)
+		return dialogBoxStyle.Render(text)
 	}
 	return ""
+}
+
+func (m *loginModel) qrDialog() string {
+	tips := "扫描二维码，或扫描目录中的 login.png"
+	if m.loginData.Status == api.QRLoginNotConfirm {
+		tips = "请在手机上点击确定完成登录"
+	}
+	fallback := dialogBoxStyle.Render("请扫描 login.png")
+	qr := renderQR(m.loginData.Modules)
+	if qr == "" {
+		return fallback
+	}
+	ui := lipgloss.JoinVertical(lipgloss.Center, tips, qr)
+	box := dialogBoxStyle.Copy().Padding(0, 0).Render(ui)
+	if m.width > 0 && m.height > 0 && (lipgloss.Width(box) > m.width || lipgloss.Height(box) > m.height) {
+		return fallback
+	}
+	return box
 }

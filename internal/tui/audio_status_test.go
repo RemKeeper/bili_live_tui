@@ -4,8 +4,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 func expireAudio(t *testing.T, m model) model {
@@ -30,7 +28,7 @@ func TestAudioStablePlaybackAndMuteUseMinimalPrompt(t *testing.T) {
 		t.Fatalf("stable playback prompt %q", got)
 	}
 	for _, muted := range []bool{true, false} {
-		next, cmd = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'m'}, Alt: true})
+		next, cmd = m.Update(press("alt+m"))
 		m = next.(model)
 		if cmd == nil {
 			t.Fatal("toggle has no expiry")
@@ -159,7 +157,7 @@ func TestAudioNoticeInSettingsAndDuplicateAckDoesNotExtendIt(t *testing.T) {
 	defer m.Close()
 	m.width = 100
 	m.settings = newSettings(LiveConfig)
-	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'m'}, Alt: true})
+	next, _ := m.Update(press("alt+m"))
 	m = next.(model)
 	event := audioEvent{room: m.room, playing: true, muted: true, muteRevision: m.audioMuteRevision}
 	next, _ = m.Update(event)

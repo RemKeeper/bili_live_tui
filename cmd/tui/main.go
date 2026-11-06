@@ -1,7 +1,7 @@
 package main
 
 import (
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/shr-go/bili_live_tui/internal/tui"
 	"github.com/shr-go/bili_live_tui/pkg/logging"
 	"os"
@@ -21,8 +21,8 @@ func main() {
 	}
 	m := tui.InitialModel(room)
 	defer m.Close()
-	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
-	if err := p.Start(); err != nil {
+	p := tea.NewProgram(m)
+	if _, err := p.Run(); err != nil {
 		// Fatal exits without running defers; stop audio and room workers first.
 		m.Close()
 		logging.Fatalf("Alas, there's been an error: %v", err)

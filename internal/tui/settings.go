@@ -5,10 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/reflow/truncate"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/shr-go/bili_live_tui/api"
 )
 
@@ -73,17 +72,17 @@ func (s *settingsModel) config() (api.BiliLiveConfig, error) {
 	return cfg, validateConfig(cfg)    // The inserted default also counts toward the limit.
 }
 func isBooleanSetting(index int) bool { return index >= 3 && index <= 8 }
-func (s *settingsModel) update(key tea.KeyMsg) tea.Cmd {
-	switch key.String() {
+func (s *settingsModel) update(key tea.KeyPressMsg) tea.Cmd {
+	switch keyString(key) {
 	case "tab", "down", "shift+tab", "up":
 		s.fields[s.selected].Blur()
 		step := 1
-		if key.String() == "up" || key.String() == "shift+tab" {
+		if keyString(key) == "up" || keyString(key) == "shift+tab" {
 			step = -1
 		}
 		s.selected = (s.selected + step + len(s.fields)) % len(s.fields)
 		return s.fields[s.selected].Focus()
-	case "enter", " ", "left", "right":
+	case "enter", "space", "left", "right":
 		if isBooleanSetting(s.selected) {
 			s.fields[s.selected].SetValue(strconv.FormatBool(s.fields[s.selected].Value() != "true"))
 			return nil
@@ -115,9 +114,9 @@ func (s *settingsModel) view(width, height int) string {
 		label := settingLabels[i] + ": "
 		ti := s.fields[i]
 		// Narrow terminals prioritize the selected value over the label.
-		label = truncate.StringWithTail(label, uint(max(0, width/2-2)), "…")
-		ti.Width = max(1, width-lipgloss.Width(prefix+label)-1)
-		ti.SetCursor(ti.Cursor())
+		label = fitTail(label, max(0, width/2-2), "…")
+		ti.SetWidth(max(1, width-lipgloss.Width(prefix+label)-1))
+		ti.SetCursor(ti.Position())
 		value := ti.View()
 		if isBooleanSetting(i) {
 			value = "[ ]"
@@ -125,15 +124,15 @@ func (s *settingsModel) view(width, height int) string {
 				value = "[x]"
 			}
 		}
-		lines = append(lines, truncate.StringWithTail(prefix+label+value, uint(width), ""))
+		lines = append(lines, fit(prefix+label+value, width))
 	}
 	for len(lines) < height {
 		lines = append(lines, "")
 	}
 	return strings.Join(lines, "\n")
 }
-func (m model) settingsKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch key.String() {
+func (m model) settingsKey(key tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	switch keyString(key) {
 	case "ctrl+c":
 		return m, tea.Quit
 	case "esc", "f2":

@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 func TestFullViewBounds(t *testing.T) {
@@ -23,7 +23,7 @@ func TestFullViewBounds(t *testing.T) {
 			if settings {
 				m.settings = newSettings(LiveConfig)
 			}
-			view := m.View()
+			view := m.View().Content
 			if lipgloss.Width(view) > size[0] || lipgloss.Height(view) > size[1] {
 				t.Fatalf("%v settings=%v actual=%dx%d", size, settings, lipgloss.Width(view), lipgloss.Height(view))
 			}
@@ -39,7 +39,7 @@ func TestLongFieldsKeepCursorTailVisible(t *testing.T) {
 	m.settings.fields[9].CursorEnd()
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 40, Height: 24})
 	m = updated.(model)
-	if !strings.Contains(m.settings.view(m.viewport.Width, m.viewport.Height), "TAIL") {
+	if !strings.Contains(m.settings.view(m.viewport.Width(), m.viewport.Height()), "TAIL") {
 		t.Fatal("settings tail hidden")
 	}
 	m.settings = nil
@@ -57,14 +57,14 @@ func TestSettingsAsyncResultsStayWithForm(t *testing.T) {
 	m := settingsFixture(t)
 	m.settings.fields[0].SetValue("")
 	form := m.settings
-	cmd := settingsCommand(form, 0, func() tea.Msg { return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("123")} })
+	cmd := settingsCommand(form, 0, func() tea.Msg { return press("123") })
 	updated, _ := m.Update(cmd())
 	m = updated.(model)
 	if form.fields[0].Value() != "123" {
 		t.Fatal("async input result dropped")
 	}
-	late := settingsCommand(form, 0, func() tea.Msg { return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("456")} })
-	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	late := settingsCommand(form, 0, func() tea.Msg { return press("456") })
+	updated, _ = m.Update(press("esc"))
 	m = updated.(model)
 	updated, _ = m.Update(late())
 	m = updated.(model)
@@ -72,24 +72,13 @@ func TestSettingsAsyncResultsStayWithForm(t *testing.T) {
 		t.Fatal("late settings input reached chat draft")
 	}
 }
-func TestTerminalPollingUpdatesBothModels(t *testing.T) {
+func TestWindowSizeUpdatesChat(t *testing.T) {
 	roomConfig(t)
 	m := InitialModel(fakeRoom(1))
 	defer m.Close()
-	updated, _ := m.Update(terminalPoll{90, 31})
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 90, Height: 31})
 	m = updated.(model)
 	if m.width != 90 || m.height != 31 || !m.ready {
 		t.Fatal("chat resize missing")
-	}
-	login := newLoginModel(nil)
-	oldW, oldH := windowWidth, windowHeight
-	defer func() { windowWidth, windowHeight = oldW, oldH }()
-	login.Update(terminalPoll{75, 28})
-	if windowWidth != 75 || windowHeight != 28 {
-		t.Fatal("login resize missing")
-	}
-	login.Update(terminalPoll{})
-	if windowWidth != 75 || windowHeight != 28 {
-		t.Fatal("failed size probe applied")
 	}
 }
